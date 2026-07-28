@@ -7,8 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +31,38 @@ fun SyncScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val authMode by viewModel.authMode.collectAsStateWithLifecycle()
     val accountEmail by viewModel.accountEmail.collectAsStateWithLifecycle()
+
+    var showCancelDialog by remember { mutableStateOf(false) }
+
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("¿Cancelar sincronización?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "¿Estás seguro de cancelar? Los datos no descargados completamente podrían necesitar descargarse de nuevo.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCancelDialog = false
+                        viewModel.cancelSync()
+                    }
+                ) {
+                    Text("Sí, cancelar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("Continuar sincronización")
+                }
+            },
+            shape = RoundedCornerShape(16.dp),
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -65,8 +96,14 @@ fun SyncScreen(
                     onStart = viewModel::startSync,
                     onNavigateToSetup = onNavigateToSetup,
                 )
-                is SyncState.Scanning -> ScanningContent(message = s.message, onCancel = viewModel::cancelSync)
-                is SyncState.Syncing -> SyncingContent(s, onCancel = viewModel::cancelSync)
+                is SyncState.Scanning -> ScanningContent(
+                    message = s.message,
+                    onRequestCancel = { showCancelDialog = true }
+                )
+                is SyncState.Syncing -> SyncingContent(
+                    state = s,
+                    onRequestCancel = { showCancelDialog = true }
+                )
                 is SyncState.Paused -> PausedContent(s)
                 is SyncState.Done -> DoneContent(s, onSyncAgain = viewModel::startSync)
                 is SyncState.Error -> ErrorContent(s.message, onRetry = viewModel::startSync)
@@ -154,7 +191,7 @@ private fun IdleContent(
 }
 
 @Composable
-private fun ScanningContent(message: String, onCancel: () -> Unit) {
+private fun ScanningContent(message: String, onRequestCancel: () -> Unit) {
     Spacer(Modifier.height(40.dp))
     CircularProgressIndicator(
         modifier = Modifier.size(64.dp),
@@ -174,7 +211,7 @@ private fun ScanningContent(message: String, onCancel: () -> Unit) {
     )
     Spacer(Modifier.height(32.dp))
     OutlinedButton(
-        onClick = onCancel,
+        onClick = onRequestCancel,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
     ) {
@@ -185,7 +222,7 @@ private fun ScanningContent(message: String, onCancel: () -> Unit) {
 }
 
 @Composable
-private fun SyncingContent(state: SyncState.Syncing, onCancel: () -> Unit) {
+private fun SyncingContent(state: SyncState.Syncing, onRequestCancel: () -> Unit) {
     val progress = if (state.totalFiles > 0) {
         (state.downloaded + state.errors).toFloat() / state.totalFiles
     } else 0f
@@ -256,7 +293,7 @@ private fun SyncingContent(state: SyncState.Syncing, onCancel: () -> Unit) {
     Spacer(Modifier.height(24.dp))
 
     OutlinedButton(
-        onClick = onCancel,
+        onClick = onRequestCancel,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
     ) {

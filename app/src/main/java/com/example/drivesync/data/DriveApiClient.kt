@@ -217,7 +217,7 @@ class DriveApiClient(
         }
     }
 
-    /** Download a file from Drive to a local path */
+    /** Download a file from Drive to a local path using a .tmp cache file and Range resumption */
     suspend fun downloadFile(
         fileId: String,
         destFile: File,
@@ -226,6 +226,7 @@ class DriveApiClient(
         rateLimiter.waitForDownload()
 
         destFile.parentFile?.mkdirs()
+        val tmpFile = File(destFile.parentFile, destFile.name + ".tmp")
 
         val url = if (exportMime != null) {
             "$baseUrl/files/$fileId/export?mimeType=$exportMime"
@@ -235,14 +236,21 @@ class DriveApiClient(
 
         for (attempt in 0 until rateLimiter.maxRetries) {
             try {
-                val request = newRequestBuilder(url).build()
+                val existingLength = if (tmpFile.exists() && exportMime == null) tmpFile.length() else 0L
+                val requestBuilder = newRequestBuilder(url)
+                if (existingLength > 0) {
+                    requestBuilder.addHeader("Range", "bytes=$existingLength-")
+                }
+                val request = requestBuilder.build()
                 val response = client.newCall(request).execute()
 
-                if (response.isSuccessful) {
+                if (response.isSuccessful || response.code == 206) {
                     rateLimiter.reportSuccess()
-                    var totalBytes = 0L
+                    val append = (response.code == 206 && existingLength > 0)
+                    var totalBytes = if (append) existingLength else 0L
+
                     response.body?.byteStream()?.use { input ->
-                        FileOutputStream(destFile).use { output ->
+                        FileOutputStream(tmpFile, append).use { output ->
                             val buffer = ByteArray(32768)
                             var bytesRead: Int
                             while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -250,6 +258,10 @@ class DriveApiClient(
                                 totalBytes += bytesRead
                             }
                         }
+                    }
+                    // Atomic rename from tmp to destination file
+                    if (tmpFile.exists()) {
+                        tmpFile.renameTo(destFile)
                     }
                     return@withContext ApiResult.Success(totalBytes)
                 }
@@ -269,15 +281,16 @@ class DriveApiClient(
                 return@withContext ApiResult.Error("HTTP ${response.code}")
 
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) {
+                    throw e // Preserve coroutine cancellation
+                }
                 val backoff = rateLimiter.getBackoffDelay(attempt)
                 if (backoff == null) {
-                    destFile.delete()
                     return@withContext ApiResult.Error(e.message ?: "Error desconocido")
                 }
                 delay(backoff)
             }
         }
-        destFile.delete()
         ApiResult.QuotaExhausted
     }
 
