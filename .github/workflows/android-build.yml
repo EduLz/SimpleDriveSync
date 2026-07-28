@@ -1,19 +1,19 @@
-name: Build Android APK
+name: SimpleDriveSync CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [ main, master ]
-  release:
-    types: [ published ]
+    branches: [ main, develop ]
 
 jobs:
   build:
+    name: Build & Verify Android Release
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -26,11 +26,17 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build Debug & Release APKs
+        run: ./gradlew assembleDebug assembleRelease --no-daemon
 
-      - name: Upload APK Artifact
+      - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SimpleDriveSync-Debug-APK
+          name: SimpleDriveSync-v1.0-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleDriveSync-v1.0-Release-APK
+          path: app/build/outputs/apk/release/app-release-unsigned.apk

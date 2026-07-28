@@ -1,6 +1,5 @@
 package com.example.drivesync.ui.setup
 
-import android.accounts.Account
 import android.app.Application
 import android.net.Uri
 import android.os.Environment
@@ -9,13 +8,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.drivesync.data.DriveApiClient
 import com.example.drivesync.data.SettingsDataStore
 import com.example.drivesync.worker.WorkScheduler
-import com.google.android.gms.auth.GoogleAuthUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import java.io.File
 
 data class SetupUiState(
@@ -108,11 +109,38 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
         val state = _uiState.value
         _uiState.value = state.copy(
             oauthToken = token,
-            accountEmail = "Cuenta de Google (OAuth Web)",
+            accountEmail = "Obteniendo cuenta...",
             authMode = "OAUTH",
             isValid = state.driveUrl.isNotBlank(),
             errorMessage = null,
         )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val fetchedEmail = fetchUserInfoEmail(token)
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(
+                    accountEmail = fetchedEmail ?: "Cuenta de Google (OAuth Web)"
+                )
+            }
+        }
+    }
+
+    private fun fetchUserInfoEmail(token: String): String? {
+        return try {
+            val client = OkHttpClient()
+            val request = Request.Builder()
+                .url("https://www.googleapis.com/oauth2/v3/userinfo")
+                .header("Authorization", "Bearer $token")
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val bodyString = response.body?.string() ?: ""
+                val json = JSONObject(bodyString)
+                json.optString("email").takeIf { it.isNotBlank() }
+            } else null
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun updateApiKey(apiKey: String) {
@@ -133,6 +161,17 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
             isValid = hasAuth && state.driveUrl.isNotBlank(),
             errorMessage = null,
         )
+
+        if (token.isNotBlank()) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val fetchedEmail = fetchUserInfoEmail(token)
+                withContext(Dispatchers.Main) {
+                    _uiState.value = _uiState.value.copy(
+                        accountEmail = fetchedEmail ?: "Cuenta de Google (OAuth Web)"
+                    )
+                }
+            }
+        }
     }
 
     fun updateDriveUrl(url: String) {
@@ -194,7 +233,6 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
                 wifiOnly = state.wifiOnly,
             )
 
-            // Update WorkManager Periodic Work Schedule
             WorkScheduler.updateSchedule(getApplication(), state.syncInterval, state.wifiOnly)
 
             _uiState.value = state.copy(isSaving = false, savedSuccessfully = true)
