@@ -1,9 +1,12 @@
 package com.example.drivesync.ui.sync
 
 import android.app.Application
+import android.app.NotificationManager
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.drivesync.data.*
+import com.example.drivesync.worker.NotificationHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -90,8 +93,10 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 performScan()
             } catch (e: CancellationException) {
+                NotificationHelper.cancelNotification(getApplication())
                 _state.value = SyncState.Idle
             } catch (e: Exception) {
+                NotificationHelper.cancelNotification(getApplication())
                 if (_state.value !is SyncState.Idle) {
                     _state.value = SyncState.Error("Error: ${e.message}")
                 }
@@ -123,8 +128,10 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 performDownload(selectedFiles, selectionState)
             } catch (e: CancellationException) {
+                NotificationHelper.cancelNotification(getApplication())
                 _state.value = SyncState.Idle
             } catch (e: Exception) {
+                NotificationHelper.cancelNotification(getApplication())
                 if (_state.value !is SyncState.Idle) {
                     _state.value = SyncState.Error("Error: ${e.message}")
                 }
@@ -135,6 +142,7 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelSync() {
         syncJob?.cancel()
         syncJob = null
+        NotificationHelper.cancelNotification(getApplication())
         _state.value = SyncState.Idle
     }
 
@@ -275,6 +283,8 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             else -> "Descargando..."
         }
 
+        val notifManager = getApplication<Application>().getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+
         var idx = 0
         while (idx < total) {
             val file = toDownloadFiles[idx]
@@ -284,6 +294,15 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
 
             var fileBytesRead = 0L
             var fileTotal = file.size
+
+            val percent = (downloaded * 100) / total
+            val downloadNotif = NotificationHelper.buildNotification(
+                getApplication(),
+                "Descargando ($downloaded/$total)",
+                file.name,
+                progressPercent = percent
+            )
+            notifManager?.notify(NotificationHelper.NOTIFICATION_ID, downloadNotif)
 
             val progress = SyncState.Syncing(
                 totalFiles = total,
@@ -339,6 +358,15 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+
+        val doneNotif = NotificationHelper.buildNotification(
+            getApplication(),
+            "Sincronización Finalizada",
+            "Descargados $downloaded de $total archivos",
+            progressPercent = 100,
+            isFinished = true
+        )
+        notifManager?.notify(NotificationHelper.NOTIFICATION_ID, doneNotif)
 
         _state.value = SyncState.Done(
             downloaded = downloaded,

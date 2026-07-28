@@ -9,7 +9,6 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.example.drivesync.MainActivity
-import com.example.drivesync.R
 
 object NotificationHelper {
     const val CHANNEL_ID = "drivesync_bg_channel"
@@ -22,7 +21,7 @@ object NotificationHelper {
                 "Sincronización en Segundo Plano",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Muestra el progreso de descargas en segundo plano de SimpleDriveSync"
+                description = "Muestra el progreso de descargas de SimpleDriveSync"
             }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -65,5 +64,10 @@ object NotificationHelper {
         }
 
         return builder.build()
+    }
+
+    fun cancelNotification(context: Context) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(NOTIFICATION_ID)
     }
 }

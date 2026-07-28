@@ -72,6 +72,25 @@ fun SetupScreen(
         }
     }
 
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+    }
+
     LaunchedEffect(state.savedSuccessfully) {
         if (state.savedSuccessfully) {
             viewModel.consumeSavedSuccessfully()
@@ -151,6 +170,43 @@ fun SetupScreen(
                             Icon(Icons.Filled.Security, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Conceder permiso")
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+
+            if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Permiso de Notificaciones en Segundo Plano",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Muestra la barra de progreso y estado de descargas en la barra de estado de Android cuando la app esté minimizada.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = DriveBlue)
+                        ) {
+                            Icon(Icons.Filled.Notifications, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Permitir notificaciones")
                         }
                     }
                 }

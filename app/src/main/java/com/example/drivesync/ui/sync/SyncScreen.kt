@@ -135,10 +135,7 @@ fun SyncScreen(
                         is SyncState.Idle -> IdleContent(
                             authMode = authMode,
                             accountEmail = accountEmail,
-                            onStart = {
-                                checkNotificationPermission()
-                                viewModel.startSync()
-                            },
+                            onStart = viewModel::startSync,
                             onNavigateToSetup = onNavigateToSetup,
                         )
                         is SyncState.Scanning -> ScanningContent(
@@ -150,14 +147,8 @@ fun SyncScreen(
                             onRequestCancel = { showCancelDialog = true }
                         )
                         is SyncState.Paused -> PausedContent(s)
-                        is SyncState.Done -> DoneContent(s, onSyncAgain = {
-                            checkNotificationPermission()
-                            viewModel.startSync()
-                        })
-                        is SyncState.Error -> ErrorContent(s.message, onRetry = {
-                            checkNotificationPermission()
-                            viewModel.startSync()
-                        })
+                        is SyncState.Done -> DoneContent(s, onSyncAgain = viewModel::startSync)
+                        is SyncState.Error -> ErrorContent(s.message, onRetry = viewModel::startSync)
                         else -> {}
                     }
 
