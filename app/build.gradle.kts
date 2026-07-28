@@ -17,7 +17,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -94,4 +95,7 @@ dependencies {
 
   // Icons
   implementation(libs.androidx.compose.material.icons.extended)
+
+  // WorkManager (Background Sync & Notifications)
+  implementation(libs.androidx.work.runtime.ktx)
 }

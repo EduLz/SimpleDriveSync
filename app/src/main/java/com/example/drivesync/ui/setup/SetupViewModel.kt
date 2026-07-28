@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.drivesync.data.DriveApiClient
 import com.example.drivesync.data.SettingsDataStore
+import com.example.drivesync.worker.WorkScheduler
 import com.google.android.gms.auth.GoogleAuthUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,9 +22,11 @@ data class SetupUiState(
     val apiKey: String = "",
     val oauthToken: String = "",
     val accountEmail: String = "",
-    val authMode: String = "OAUTH", // "OAUTH" or "API_KEY"
+    val authMode: String = "PUBLIC", // "PUBLIC", "OAUTH", "API_KEY"
     val driveUrl: String = "",
     val localPath: String = "",
+    val syncInterval: String = "OFF", // "OFF", "6H", "12H", "24H"
+    val wifiOnly: Boolean = false,
     val isSaving: Boolean = false,
     val isValid: Boolean = false,
     val errorMessage: String? = null,
@@ -55,6 +58,9 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
             val localPath = settingsStore.localPath.first().ifBlank {
                 getDefaultDownloadPath()
             }
+            val syncInterval = settingsStore.syncInterval.first()
+            val wifiOnly = settingsStore.wifiOnly.first()
+
             val hasAuth = when (authMode) {
                 "PUBLIC" -> true
                 "OAUTH" -> oauthToken.isNotBlank()
@@ -68,6 +74,8 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
                 authMode = authMode,
                 driveUrl = driveUrl,
                 localPath = localPath,
+                syncInterval = syncInterval,
+                wifiOnly = wifiOnly,
                 isValid = hasAuth && driveUrl.isNotBlank(),
             )
         }
@@ -88,6 +96,14 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun setSyncInterval(interval: String) {
+        _uiState.value = _uiState.value.copy(syncInterval = interval)
+    }
+
+    fun setWifiOnly(wifiOnly: Boolean) {
+        _uiState.value = _uiState.value.copy(wifiOnly = wifiOnly)
+    }
+
     fun onWebTokenCaptured(token: String) {
         val state = _uiState.value
         _uiState.value = state.copy(
@@ -99,67 +115,43 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun updateApiKey(apiKey: String) {
+        val state = _uiState.value
+        val hasAuth = if (state.authMode == "API_KEY") apiKey.isNotBlank() else true
+        _uiState.value = state.copy(
+            apiKey = apiKey,
+            isValid = hasAuth && state.driveUrl.isNotBlank(),
+            errorMessage = null,
+        )
+    }
+
     fun updateOAuthToken(token: String) {
         val state = _uiState.value
+        val hasAuth = if (state.authMode == "OAUTH") token.isNotBlank() else true
         _uiState.value = state.copy(
             oauthToken = token,
-            authMode = "OAUTH",
-            isValid = token.isNotBlank() && state.driveUrl.isNotBlank(),
+            isValid = hasAuth && state.driveUrl.isNotBlank(),
             errorMessage = null,
         )
     }
 
-    fun updateApiKey(value: String) {
+    fun updateDriveUrl(url: String) {
         val state = _uiState.value
-        _uiState.value = state.copy(
-            apiKey = value,
-            isValid = value.isNotBlank() && state.driveUrl.isNotBlank(),
-            errorMessage = null,
-        )
-    }
-
-    fun updateDriveUrl(value: String) {
-        val state = _uiState.value
-        val hasAuth = if (state.authMode == "OAUTH") state.oauthToken.isNotBlank() else state.apiKey.isNotBlank()
-        _uiState.value = state.copy(
-            driveUrl = value,
-            isValid = hasAuth && value.isNotBlank(),
-            errorMessage = null,
-        )
-    }
-
-    fun updateLocalPath(value: String) {
-        _uiState.value = _uiState.value.copy(localPath = value, errorMessage = null)
-    }
-
-    fun setAuthError(msg: String) {
-        _uiState.value = _uiState.value.copy(
-            errorMessage = msg,
-            isSaving = false
-        )
-    }
-
-    fun onGoogleSignInSuccess(account: Account, email: String) {
-        viewModelScope.launch {
-            try {
-                val scope = "oauth2:https://www.googleapis.com/auth/drive.readonly"
-                val token = withContext(Dispatchers.IO) {
-                    GoogleAuthUtil.getToken(getApplication(), account, scope)
-                }
-                val state = _uiState.value
-                _uiState.value = state.copy(
-                    oauthToken = token,
-                    accountEmail = email,
-                    authMode = "OAUTH",
-                    isValid = state.driveUrl.isNotBlank(),
-                    errorMessage = null,
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "Error obteniendo token de Google: ${e.message}\n(Nota: OAuth nativo de Android requiere registrar la app o usar Client ID Web)"
-                )
-            }
+        val hasAuth = when (state.authMode) {
+            "PUBLIC" -> true
+            "OAUTH" -> state.oauthToken.isNotBlank()
+            "API_KEY" -> state.apiKey.isNotBlank()
+            else -> true
         }
+        _uiState.value = state.copy(
+            driveUrl = url,
+            isValid = hasAuth && url.isNotBlank(),
+            errorMessage = null,
+        )
+    }
+
+    fun updateLocalPath(path: String) {
+        _uiState.value = _uiState.value.copy(localPath = path)
     }
 
     fun onFolderSelected(uri: Uri) {
@@ -198,7 +190,13 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
                 oauthToken = state.oauthToken,
                 accountEmail = state.accountEmail,
                 authMode = state.authMode,
+                syncInterval = state.syncInterval,
+                wifiOnly = state.wifiOnly,
             )
+
+            // Update WorkManager Periodic Work Schedule
+            WorkScheduler.updateSchedule(getApplication(), state.syncInterval, state.wifiOnly)
+
             _uiState.value = state.copy(isSaving = false, savedSuccessfully = true)
         }
     }

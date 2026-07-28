@@ -323,13 +323,67 @@ fun SetupScreen(
                 Text("Seleccionar carpeta", fontSize = 14.sp)
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(16.dp))
 
-            Text(
-                "Ruta por defecto: Descargas/Tamashis Project",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Periodic Schedule Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Sincronización Programada en Segundo Plano", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.height(8.dp))
+
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = state.syncInterval == "OFF",
+                            onClick = { viewModel.setSyncInterval("OFF") },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4),
+                            icon = {},
+                            label = { Text("Off", fontSize = 11.sp) }
+                        )
+                        SegmentedButton(
+                            selected = state.syncInterval == "6H",
+                            onClick = { viewModel.setSyncInterval("6H") },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4),
+                            icon = {},
+                            label = { Text("6 hrs", fontSize = 11.sp) }
+                        )
+                        SegmentedButton(
+                            selected = state.syncInterval == "12H",
+                            onClick = { viewModel.setSyncInterval("12H") },
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4),
+                            icon = {},
+                            label = { Text("12 hrs", fontSize = 11.sp) }
+                        )
+                        SegmentedButton(
+                            selected = state.syncInterval == "24H",
+                            onClick = { viewModel.setSyncInterval("24H") },
+                            shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4),
+                            icon = {},
+                            label = { Text("Diario", fontSize = 11.sp) }
+                        )
+                    }
+
+                    if (state.syncInterval != "OFF") {
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Sincronizar solo con conexión Wi-Fi", fontSize = 13.sp)
+                            Switch(
+                                checked = state.wifiOnly,
+                                onCheckedChange = viewModel::setWifiOnly
+                            )
+                        }
+                    }
+                }
+            }
 
             state.errorMessage?.let { error ->
                 Spacer(Modifier.height(12.dp))
