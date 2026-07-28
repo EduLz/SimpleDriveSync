@@ -94,7 +94,7 @@ fun SyncScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Drive Sync") },
+                title = { Text("SimpleDriveSync") },
                 actions = {
                     IconButton(onClick = onNavigateToSetup) {
                         Icon(Icons.Filled.Settings, contentDescription = "Configuración")

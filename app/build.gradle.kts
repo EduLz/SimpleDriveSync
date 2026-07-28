@@ -8,7 +8,7 @@ android {
     namespace = "com.example.drivesync"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.drivesync"
+        applicationId = "com.edulp.simpledrivesync"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
