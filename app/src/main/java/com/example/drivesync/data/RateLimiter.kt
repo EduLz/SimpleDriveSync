@@ -14,13 +14,13 @@ import kotlin.random.Random
  * - Auto-cooldown after 3 consecutive 403 errors
  */
 class RateLimiter(
-    private val maxRequestsPerMinute: Int = 120,
-    private val apiDelayMinMs: Long = 200,
-    private val apiDelayMaxMs: Long = 500,
-    private val downloadDelayMinMs: Long = 500,
-    private val downloadDelayMaxMs: Long = 1500,
-    private val jitterMaxMs: Long = 500,
-    private val backoffBaseMs: Long = 5000,
+    private val maxRequestsPerMinute: Int = 1000,
+    private val apiDelayMinMs: Long = 0,
+    private val apiDelayMaxMs: Long = 0,
+    private val downloadDelayMinMs: Long = 0,
+    private val downloadDelayMaxMs: Long = 0,
+    private val jitterMaxMs: Long = 0,
+    private val backoffBaseMs: Long = 1000,
     private val backoffMaxMs: Long = 1800000, // 30 minutes
     val maxRetries: Int = 6,
     private val cooldownAfterNErrors: Int = 3,

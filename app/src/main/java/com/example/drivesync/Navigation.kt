@@ -16,20 +16,17 @@ fun MainNavigation() {
     NavDisplay(
         backStack = backStack,
         onBack = {
-            if (backStack.size > 1) {
-                backStack.removeLastOrNull()
+            if (backStack.lastOrNull() == Setup) {
+                backStack.clear()
+                backStack.add(Sync)
             }
         },
         entryProvider = entryProvider {
             entry<Setup> {
                 SetupScreen(
                     onSetupComplete = {
-                        if (backStack.size > 1) {
-                            backStack.removeLastOrNull()
-                        } else {
-                            backStack.clear()
-                            backStack.add(Sync)
-                        }
+                        backStack.clear()
+                        backStack.add(Sync)
                     },
                     modifier = Modifier.safeDrawingPadding(),
                 )
@@ -37,9 +34,8 @@ fun MainNavigation() {
             entry<Sync> {
                 SyncScreen(
                     onNavigateToSetup = {
-                        if (backStack.lastOrNull() != Setup) {
-                            backStack.add(Setup)
-                        }
+                        backStack.clear()
+                        backStack.add(Setup)
                     },
                     modifier = Modifier.safeDrawingPadding(),
                 )

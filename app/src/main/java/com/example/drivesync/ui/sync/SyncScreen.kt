@@ -105,7 +105,7 @@ fun SyncScreen(
 
             when (val s = state) {
                 is SyncState.Idle -> IdleContent(onStart = viewModel::startSync)
-                is SyncState.Scanning -> ScanningContent(message = s.message)
+                is SyncState.Scanning -> ScanningContent(message = s.message, onCancel = viewModel::cancelSync)
                 is SyncState.Syncing -> SyncingContent(s, onCancel = viewModel::cancelSync)
                 is SyncState.Paused -> PausedContent(s)
                 is SyncState.Done -> DoneContent(s, onSyncAgain = viewModel::startSync)
@@ -147,7 +147,7 @@ private fun IdleContent(onStart: () -> Unit) {
 }
 
 @Composable
-private fun ScanningContent(message: String) {
+private fun ScanningContent(message: String, onCancel: () -> Unit) {
     Spacer(Modifier.height(40.dp))
     CircularProgressIndicator(
         modifier = Modifier.size(64.dp),
@@ -165,6 +165,16 @@ private fun ScanningContent(message: String) {
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
     )
+    Spacer(Modifier.height(32.dp))
+    OutlinedButton(
+        onClick = onCancel,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Icon(Icons.Filled.Stop, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Cancelar análisis")
+    }
 }
 
 @Composable
@@ -405,10 +415,10 @@ private fun RateLimitCard() {
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("⚡ Modo Prueba Rápido activo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("🚀 Máxima Velocidad Activa (Sin Delays)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(Modifier.height(4.dp))
             Text(
-                "0.5-1.5s entre descargas • Auto-pausa 30 min ante error 403",
+                "Descargas directas e instantáneas sin esperas artificiales.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
