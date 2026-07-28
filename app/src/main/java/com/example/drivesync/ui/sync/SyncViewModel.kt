@@ -15,10 +15,26 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
+data class SelectableDriveItem(
+    val item: DriveItem,
+    val isSelected: Boolean = true,
+)
+
 /** UI state for the sync screen */
 sealed class SyncState {
     data object Idle : SyncState()
     data class Scanning(val message: String) : SyncState()
+    data class FileSelection(
+        val newFiles: List<SelectableDriveItem>,
+        val existingFiles: List<DriveItem>,
+        val totalSelectedBytes: Long,
+        val remoteFolders: List<DriveItem>,
+        val localDir: File,
+        val driveClient: DriveApiClient,
+        val rateLimiter: RateLimiter,
+        val authModeVal: String,
+        val startTime: Long,
+    ) : SyncState()
     data class Syncing(
         val totalFiles: Int = 0,
         val downloaded: Int = 0,
@@ -27,6 +43,8 @@ sealed class SyncState {
         val currentFile: String = "",
         val downloadedBytes: Long = 0,
         val waitingMessage: String = "",
+        val fileDownloadedBytes: Long = 0,
+        val fileTotalBytes: Long = 0,
     ) : SyncState()
     data class Paused(
         val reason: String,
@@ -70,7 +88,40 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
 
         syncJob = viewModelScope.launch {
             try {
-                performSync()
+                performScan()
+            } catch (e: CancellationException) {
+                _state.value = SyncState.Idle
+            } catch (e: Exception) {
+                if (_state.value !is SyncState.Idle) {
+                    _state.value = SyncState.Error("Error: ${e.message}")
+                }
+            }
+        }
+    }
+
+    fun toggleFileSelection(fileId: String) {
+        val current = _state.value as? SyncState.FileSelection ?: return
+        val updated = current.newFiles.map {
+            if (it.item.id == fileId) it.copy(isSelected = !it.isSelected) else it
+        }
+        val totalSelectedBytes = updated.filter { it.isSelected }.sumOf { it.item.size }
+        _state.value = current.copy(newFiles = updated, totalSelectedBytes = totalSelectedBytes)
+    }
+
+    fun selectAllFiles(select: Boolean) {
+        val current = _state.value as? SyncState.FileSelection ?: return
+        val updated = current.newFiles.map { it.copy(isSelected = select) }
+        val totalSelectedBytes = updated.filter { it.isSelected }.sumOf { it.item.size }
+        _state.value = current.copy(newFiles = updated, totalSelectedBytes = totalSelectedBytes)
+    }
+
+    fun startDownloadSelected() {
+        val selectionState = _state.value as? SyncState.FileSelection ?: return
+        val selectedFiles = selectionState.newFiles.filter { it.isSelected }.map { it.item }
+
+        syncJob = viewModelScope.launch {
+            try {
+                performDownload(selectedFiles, selectionState)
             } catch (e: CancellationException) {
                 _state.value = SyncState.Idle
             } catch (e: Exception) {
@@ -87,7 +138,7 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         _state.value = SyncState.Idle
     }
 
-    private suspend fun performSync() {
+    private suspend fun performScan() {
         val apiKey = settingsStore.apiKey.first()
         val oauthToken = settingsStore.oauthToken.first()
         val authModeVal = settingsStore.authMode.first()
@@ -95,7 +146,7 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         val localPathStr = settingsStore.localPath.first()
 
         val hasAuth = when (authModeVal) {
-            "PUBLIC" -> true // Public mode doesn't require user login!
+            "PUBLIC" -> true
             "OAUTH" -> oauthToken.isNotBlank()
             "API_KEY" -> apiKey.isNotBlank()
             else -> true
@@ -114,36 +165,9 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
 
         val localDir = File(localPathStr)
         val rateLimiter = when (authModeVal) {
-            "API_KEY" -> {
-                // Conservative Anti-Ban protection for API Key mode
-                RateLimiter(
-                    maxRequestsPerMinute = 10,
-                    apiDelayMinMs = 2000,
-                    apiDelayMaxMs = 4000,
-                    downloadDelayMinMs = 15000,
-                    downloadDelayMaxMs = 25000,
-                )
-            }
-            "PUBLIC" -> {
-                // Smart micro-pause pacing (~500ms) for Public links to prevent Google's unauthenticated burst block
-                RateLimiter(
-                    maxRequestsPerMinute = 120,
-                    apiDelayMinMs = 200,
-                    apiDelayMaxMs = 400,
-                    downloadDelayMinMs = 400,
-                    downloadDelayMaxMs = 800,
-                )
-            }
-            else -> {
-                // Unthrottled 0ms maximum speed for OAuth 2.0
-                RateLimiter(
-                    maxRequestsPerMinute = 1000,
-                    apiDelayMinMs = 0,
-                    apiDelayMaxMs = 0,
-                    downloadDelayMinMs = 0,
-                    downloadDelayMaxMs = 0,
-                )
-            }
+            "API_KEY" -> RateLimiter(10, 2000, 4000, 15000, 25000)
+            "PUBLIC" -> RateLimiter(120, 200, 400, 400, 800)
+            else -> RateLimiter(1000, 0, 0, 0, 0)
         }
 
         val driveClient = when (authModeVal) {
@@ -152,10 +176,9 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             else -> DriveApiClient(apiKey = apiKey, oauthToken = oauthToken, rateLimiter = rateLimiter)
         }
         val scanner = LocalFileScanner(localDir)
-
         val startTime = System.currentTimeMillis()
 
-        // ─── Step 1: Verify access ─────────────────────────
+        // Step 1: Verify access
         _state.value = SyncState.Scanning("Verificando acceso a Google Drive...")
         when (val result = driveClient.verifyAccess(folderId)) {
             is ApiResult.Success -> { /* OK */ }
@@ -169,12 +192,12 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // ─── Step 2: Scan local ────────────────────────────
+        // Step 2: Scan local
         _state.value = SyncState.Scanning("Escaneando carpeta local...")
         val localItems = scanner.scan()
         val localKeysLower = localItems.keys.map { it.lowercase() }.toSet()
 
-        // ─── Step 3: List Drive ────────────────────────────
+        // Step 3: List Drive
         _state.value = SyncState.Scanning("Listando archivos de Google Drive...")
         val remoteItems = when (val result = driveClient.listFolderRecursive(folderId) { folder ->
             _state.value = SyncState.Scanning("Listando: $folder...")
@@ -191,47 +214,60 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val remoteFolders = remoteItems.filter { it.type == ItemType.FOLDER }
-        val remoteFiles = remoteItems.filter { it.type == ItemType.FILE }
-
-        // ─── Step 4: Compare ───────────────────────────────
-        _state.value = SyncState.Scanning("Comparando Drive vs Local...")
-
-        val toCreateFolders = mutableListOf<DriveItem>()
-        val toDownloadFiles = mutableListOf<DriveItem>()
-        var skippedCount = 0
+        val existingFiles = mutableListOf<DriveItem>()
+        val newFiles = mutableListOf<SelectableDriveItem>()
 
         for (item in remoteItems) {
+            if (item.type == ItemType.FOLDER) continue
             if (item.path.lowercase() in localKeysLower) {
-                skippedCount++
+                existingFiles.add(item)
             } else {
-                if (item.type == ItemType.FOLDER) toCreateFolders.add(item)
-                else toDownloadFiles.add(item)
+                newFiles.add(SelectableDriveItem(item, isSelected = true))
             }
         }
 
-        // ─── Step 5: Create folders ────────────────────────
-        for (folder in toCreateFolders) {
-            File(localDir, folder.path).mkdirs()
-        }
-
-        // ─── Step 6: Download files ────────────────────────
-        if (toDownloadFiles.isEmpty()) {
+        if (newFiles.isEmpty()) {
             _state.value = SyncState.Done(
                 downloaded = 0,
-                skipped = skippedCount,
+                skipped = existingFiles.size,
                 errors = 0,
                 downloadedBytes = 0,
                 durationSeconds = (System.currentTimeMillis() - startTime) / 1000,
-                totalDriveFiles = remoteFiles.size,
+                totalDriveFiles = remoteItems.count { it.type == ItemType.FILE },
                 totalDriveFolders = remoteFolders.size,
             )
             return
         }
 
+        val totalSelectedBytes = newFiles.sumOf { it.item.size }
+        _state.value = SyncState.FileSelection(
+            newFiles = newFiles,
+            existingFiles = existingFiles,
+            totalSelectedBytes = totalSelectedBytes,
+            remoteFolders = remoteFolders,
+            localDir = localDir,
+            driveClient = driveClient,
+            rateLimiter = rateLimiter,
+            authModeVal = authModeVal,
+            startTime = startTime,
+        )
+    }
+
+    private suspend fun performDownload(
+        toDownloadFiles: List<DriveItem>,
+        selectionState: SyncState.FileSelection,
+    ) {
+        val localDir = selectionState.localDir
+        val driveClient = selectionState.driveClient
+        val rateLimiter = selectionState.rateLimiter
+        val authModeVal = selectionState.authModeVal
+        val startTime = selectionState.startTime
+
         var downloaded = 0
         var errors = 0
         var totalBytes = 0L
         val total = toDownloadFiles.size
+        val skippedCount = selectionState.existingFiles.size
 
         val waitMessageText = when (authModeVal) {
             "API_KEY" -> "Protección anti-ban activa (15-25s)..."
@@ -244,6 +280,11 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             val file = toDownloadFiles[idx]
             val destFile = File(localDir, file.path)
 
+            destFile.parentFile?.mkdirs()
+
+            var fileBytesRead = 0L
+            var fileTotal = file.size
+
             val progress = SyncState.Syncing(
                 totalFiles = total,
                 downloaded = downloaded,
@@ -252,11 +293,23 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
                 currentFile = file.name,
                 downloadedBytes = totalBytes,
                 waitingMessage = waitMessageText,
+                fileDownloadedBytes = 0L,
+                fileTotalBytes = fileTotal,
             )
             _state.value = progress
 
             val result = driveClient.downloadFile(
-                file.id, destFile, file.exportMime
+                file.id,
+                destFile,
+                file.exportMime,
+                onProgress = { currentDownloaded, totalExpected ->
+                    fileBytesRead = currentDownloaded
+                    if (totalExpected > 0) fileTotal = totalExpected
+                    _state.value = progress.copy(
+                        fileDownloadedBytes = fileBytesRead,
+                        fileTotalBytes = fileTotal
+                    )
+                }
             )
 
             when (result) {
@@ -293,8 +346,8 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             errors = errors,
             downloadedBytes = totalBytes,
             durationSeconds = (System.currentTimeMillis() - startTime) / 1000,
-            totalDriveFiles = remoteFiles.size,
-            totalDriveFolders = remoteFolders.size,
+            totalDriveFiles = selectionState.existingFiles.size + selectionState.newFiles.size,
+            totalDriveFolders = selectionState.remoteFolders.size,
         )
     }
 }

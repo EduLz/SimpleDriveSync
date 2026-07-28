@@ -222,6 +222,7 @@ class DriveApiClient(
         fileId: String,
         destFile: File,
         exportMime: String? = null,
+        onProgress: ((downloadedBytes: Long, totalBytes: Long) -> Unit)? = null,
     ): ApiResult<Long> = withContext(Dispatchers.IO) {
         rateLimiter.waitForDownload()
 
@@ -248,15 +249,24 @@ class DriveApiClient(
                     rateLimiter.reportSuccess()
                     val append = (response.code == 206 && existingLength > 0)
                     var totalBytes = if (append) existingLength else 0L
+                    val responseLength = response.body?.contentLength() ?: 0L
+                    val expectedTotalBytes = if (responseLength > 0) totalBytes + responseLength else 0L
 
                     response.body?.byteStream()?.use { input ->
                         FileOutputStream(tmpFile, append).use { output ->
                             val buffer = ByteArray(32768)
                             var bytesRead: Int
+                            var lastReportTime = 0L
                             while (input.read(buffer).also { bytesRead = it } != -1) {
                                 output.write(buffer, 0, bytesRead)
                                 totalBytes += bytesRead
+                                val now = System.currentTimeMillis()
+                                if (now - lastReportTime > 150) {
+                                    lastReportTime = now
+                                    onProgress?.invoke(totalBytes, expectedTotalBytes)
+                                }
                             }
+                            onProgress?.invoke(totalBytes, expectedTotalBytes)
                         }
                     }
                     // Atomic rename from tmp to destination file
