@@ -55,7 +55,12 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
             val localPath = settingsStore.localPath.first().ifBlank {
                 getDefaultDownloadPath()
             }
-            val hasAuth = if (authMode == "OAUTH") oauthToken.isNotBlank() else apiKey.isNotBlank()
+            val hasAuth = when (authMode) {
+                "PUBLIC" -> true
+                "OAUTH" -> oauthToken.isNotBlank()
+                "API_KEY" -> apiKey.isNotBlank()
+                else -> true
+            }
             _uiState.value = _uiState.value.copy(
                 apiKey = apiKey,
                 oauthToken = oauthToken,
@@ -70,7 +75,12 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAuthMode(mode: String) {
         val state = _uiState.value
-        val hasAuth = if (mode == "OAUTH") state.oauthToken.isNotBlank() else state.apiKey.isNotBlank()
+        val hasAuth = when (mode) {
+            "PUBLIC" -> true
+            "OAUTH" -> state.oauthToken.isNotBlank()
+            "API_KEY" -> state.apiKey.isNotBlank()
+            else -> true
+        }
         _uiState.value = state.copy(
             authMode = mode,
             isValid = hasAuth && state.driveUrl.isNotBlank(),

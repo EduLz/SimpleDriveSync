@@ -74,7 +74,13 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         val driveUrl = settingsStore.driveUrl.first()
         val localPathStr = settingsStore.localPath.first()
 
-        val hasAuth = if (authMode == "OAUTH") oauthToken.isNotBlank() else apiKey.isNotBlank()
+        val hasAuth = when (authMode) {
+            "PUBLIC" -> true // Public mode doesn't require user login!
+            "OAUTH" -> oauthToken.isNotBlank()
+            "API_KEY" -> apiKey.isNotBlank()
+            else -> true
+        }
+
         if (!hasAuth || driveUrl.isBlank()) {
             _state.value = SyncState.Error("Configuración incompleta. Ve a Ajustes.")
             return
@@ -88,10 +94,10 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
 
         val localDir = File(localPathStr)
         val rateLimiter = RateLimiter()
-        val driveClient = if (authMode == "OAUTH") {
-            DriveApiClient(oauthToken = oauthToken, rateLimiter = rateLimiter)
-        } else {
-            DriveApiClient(apiKey = apiKey, rateLimiter = rateLimiter)
+        val driveClient = when (authMode) {
+            "OAUTH" -> DriveApiClient(oauthToken = oauthToken, rateLimiter = rateLimiter)
+            "API_KEY" -> DriveApiClient(apiKey = apiKey, rateLimiter = rateLimiter)
+            else -> DriveApiClient(apiKey = apiKey, oauthToken = oauthToken, rateLimiter = rateLimiter)
         }
         val scanner = LocalFileScanner(localDir)
 

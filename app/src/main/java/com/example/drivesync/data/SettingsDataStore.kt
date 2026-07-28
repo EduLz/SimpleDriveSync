@@ -17,7 +17,8 @@ class SettingsDataStore(private val context: Context) {
         private val API_KEY = stringPreferencesKey("api_key")
         private val OAUTH_TOKEN = stringPreferencesKey("oauth_token")
         private val ACCOUNT_EMAIL = stringPreferencesKey("account_email")
-        private val AUTH_MODE = stringPreferencesKey("auth_mode") // "API_KEY" or "OAUTH"
+        private val AUTH_MODE = stringPreferencesKey("auth_mode") // "PUBLIC", "OAUTH", "API_KEY"
+        private val CUSTOM_CLIENT_ID = stringPreferencesKey("custom_client_id")
         private val DRIVE_URL = stringPreferencesKey("drive_url")
         private val LOCAL_PATH = stringPreferencesKey("local_path")
     }
@@ -25,22 +26,30 @@ class SettingsDataStore(private val context: Context) {
     val apiKey: Flow<String> = context.dataStore.data.map { it[API_KEY] ?: "" }
     val oauthToken: Flow<String> = context.dataStore.data.map { it[OAUTH_TOKEN] ?: "" }
     val accountEmail: Flow<String> = context.dataStore.data.map { it[ACCOUNT_EMAIL] ?: "" }
-    val authMode: Flow<String> = context.dataStore.data.map { it[AUTH_MODE] ?: "API_KEY" }
+    val authMode: Flow<String> = context.dataStore.data.map { it[AUTH_MODE] ?: "PUBLIC" }
+    val customClientId: Flow<String> = context.dataStore.data.map { it[CUSTOM_CLIENT_ID] ?: "" }
     val driveUrl: Flow<String> = context.dataStore.data.map { it[DRIVE_URL] ?: "" }
     val localPath: Flow<String> = context.dataStore.data.map { it[LOCAL_PATH] ?: "" }
 
     val hasConfig: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        val hasAuth = !prefs[API_KEY].isNullOrBlank() || !prefs[OAUTH_TOKEN].isNullOrBlank()
+        val mode = prefs[AUTH_MODE] ?: "PUBLIC"
+        val hasAuth = when (mode) {
+            "PUBLIC" -> true // Public mode needs 0 auth!
+            "OAUTH" -> !prefs[OAUTH_TOKEN].isNullOrBlank()
+            "API_KEY" -> !prefs[API_KEY].isNullOrBlank()
+            else -> true
+        }
         hasAuth && !prefs[DRIVE_URL].isNullOrBlank()
     }
 
     suspend fun saveSettings(
-        apiKey: String,
+        apiKey: String = "",
         driveUrl: String,
         localPath: String,
         oauthToken: String = "",
         accountEmail: String = "",
-        authMode: String = "API_KEY",
+        authMode: String = "PUBLIC",
+        customClientId: String = "",
     ) {
         context.dataStore.edit { prefs ->
             prefs[API_KEY] = apiKey.trim()
@@ -49,6 +58,7 @@ class SettingsDataStore(private val context: Context) {
             prefs[OAUTH_TOKEN] = oauthToken.trim()
             prefs[ACCOUNT_EMAIL] = accountEmail.trim()
             prefs[AUTH_MODE] = authMode.trim()
+            prefs[CUSTOM_CLIENT_ID] = customClientId.trim()
         }
     }
 

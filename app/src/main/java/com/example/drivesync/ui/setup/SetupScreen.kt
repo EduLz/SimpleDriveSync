@@ -203,31 +203,71 @@ fun SetupScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
-            // Auth Mode Selection (OAuth 2.0 vs API Key)
+            // Auth Mode Selection (PUBLIC, OAUTH, API_KEY)
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = state.authMode == "PUBLIC",
+                    onClick = { viewModel.setAuthMode("PUBLIC") },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                ) {
+                    Icon(Icons.Filled.Public, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Pública", fontSize = 11.sp)
+                }
                 SegmentedButton(
                     selected = state.authMode == "OAUTH",
                     onClick = { viewModel.setAuthMode("OAUTH") },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                 ) {
                     Icon(Icons.Filled.AccountCircle, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Google OAuth 2.0", fontSize = 12.sp)
+                    Text("OAuth", fontSize = 11.sp)
                 }
                 SegmentedButton(
                     selected = state.authMode == "API_KEY",
                     onClick = { viewModel.setAuthMode("API_KEY") },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
                 ) {
                     Icon(Icons.Filled.Key, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("API Key", fontSize = 12.sp)
+                    Text("API Key", fontSize = 11.sp)
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            if (state.authMode == "OAUTH") {
+            if (state.authMode == "PUBLIC") {
+                // Public mode card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Public, null, tint = DriveBlue, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Modo Carpeta Pública (Sin Login)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Ideal para descargar carpetas públicas compartidas por enlace. 0 inicio de sesión requerido, usuarios ilimitados.",
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else if (state.authMode == "OAUTH") {
                 // OAuth 2.0 Google Sign-In Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -273,7 +313,6 @@ fun SetupScreen(
                             Spacer(Modifier.height(12.dp))
                             Button(
                                 onClick = {
-                                    // Try Web OAuth directly for maximum compatibility
                                     showWebOAuthDialog = true
                                 },
                                 shape = RoundedCornerShape(12.dp),
@@ -310,7 +349,7 @@ fun SetupScreen(
                 OutlinedTextField(
                     value = state.apiKey,
                     onValueChange = viewModel::updateApiKey,
-                    label = { Text("API Key de Google") },
+                    label = { Text("API Key de Google (Opcional/Personal)") },
                     leadingIcon = { Icon(Icons.Filled.Key, null) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
