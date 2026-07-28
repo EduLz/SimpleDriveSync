@@ -7,8 +7,10 @@ import com.example.drivesync.data.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -48,6 +50,18 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
     private val _state = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = _state
 
+    val authMode: StateFlow<String> = settingsStore.authMode.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "PUBLIC"
+    )
+
+    val accountEmail: StateFlow<String> = settingsStore.accountEmail.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ""
+    )
+
+    val driveUrl: StateFlow<String> = settingsStore.driveUrl.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ""
+    )
+
     private var syncJob: Job? = null
 
     fun startSync() {
@@ -70,30 +84,30 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun performSync() {
         val apiKey = settingsStore.apiKey.first()
         val oauthToken = settingsStore.oauthToken.first()
-        val authMode = settingsStore.authMode.first()
-        val driveUrl = settingsStore.driveUrl.first()
+        val authModeVal = settingsStore.authMode.first()
+        val driveUrlVal = settingsStore.driveUrl.first()
         val localPathStr = settingsStore.localPath.first()
 
-        val hasAuth = when (authMode) {
+        val hasAuth = when (authModeVal) {
             "PUBLIC" -> true // Public mode doesn't require user login!
             "OAUTH" -> oauthToken.isNotBlank()
             "API_KEY" -> apiKey.isNotBlank()
             else -> true
         }
 
-        if (!hasAuth || driveUrl.isBlank()) {
+        if (!hasAuth || driveUrlVal.isBlank()) {
             _state.value = SyncState.Error("Configuración incompleta. Ve a Ajustes.")
             return
         }
 
-        val folderId = DriveApiClient.extractFolderId(driveUrl)
+        val folderId = DriveApiClient.extractFolderId(driveUrlVal)
         if (folderId == null) {
             _state.value = SyncState.Error("URL de Drive inválida")
             return
         }
 
         val localDir = File(localPathStr)
-        val rateLimiter = if (authMode == "API_KEY") {
+        val rateLimiter = if (authModeVal == "API_KEY") {
             // Conservative Anti-Ban protection for API Key mode
             RateLimiter(
                 maxRequestsPerMinute = 10,
@@ -113,7 +127,7 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
-        val driveClient = when (authMode) {
+        val driveClient = when (authModeVal) {
             "OAUTH" -> DriveApiClient(oauthToken = oauthToken, rateLimiter = rateLimiter)
             "API_KEY" -> DriveApiClient(apiKey = apiKey, rateLimiter = rateLimiter)
             else -> DriveApiClient(apiKey = apiKey, oauthToken = oauthToken, rateLimiter = rateLimiter)
@@ -142,7 +156,7 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         val localKeysLower = localItems.keys.map { it.lowercase() }.toSet()
 
         // ─── Step 3: List Drive ────────────────────────────
-        _state.value = SyncState.Scanning("Listando Google Drive (rate limiting activo)...")
+        _state.value = SyncState.Scanning("Listando archivos de Google Drive...")
         val remoteItems = when (val result = driveClient.listFolderRecursive(folderId) { folder ->
             _state.value = SyncState.Scanning("Listando: $folder...")
         }) {
@@ -200,6 +214,12 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         var totalBytes = 0L
         val total = toDownloadFiles.size
 
+        val waitMessageText = if (authModeVal == "API_KEY") {
+            "Protección Anti-Ban activa..."
+        } else {
+            "Descargando a máxima velocidad..."
+        }
+
         var idx = 0
         while (idx < total) {
             val file = toDownloadFiles[idx]
@@ -212,7 +232,7 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
                 errors = errors,
                 currentFile = file.name,
                 downloadedBytes = totalBytes,
-                waitingMessage = "Esperando (anti-ban)...",
+                waitingMessage = waitMessageText,
             )
             _state.value = progress
 
@@ -227,7 +247,6 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
                     idx++
                 }
                 is ApiResult.QuotaExhausted -> {
-                    // Auto-pause for 30 minutes
                     val cooldownMs = rateLimiter.cooldownDurationMs
                     var remaining = cooldownMs
                     while (remaining > 0) {
@@ -238,11 +257,9 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
                                 waitingMessage = "Pausa: ${remaining / 60000} min restantes"
                             ),
                         )
-                        val chunk = minOf(remaining, 60000L)
-                        delay(chunk)
-                        remaining -= chunk
+                        delay(60000)
+                        remaining -= 60000
                     }
-                    // Retry same file (don't increment idx)
                 }
                 is ApiResult.Error -> {
                     errors++

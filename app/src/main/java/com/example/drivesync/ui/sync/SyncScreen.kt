@@ -1,43 +1,12 @@
 package com.example.drivesync.ui.sync
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.PauseCircle
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -50,24 +19,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.drivesync.theme.DriveBlue
-import com.example.drivesync.theme.StatusError
-import com.example.drivesync.theme.StatusOk
-import com.example.drivesync.theme.StatusPending
-import com.example.drivesync.theme.StatusSkipped
-
-private fun formatSize(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-    bytes < 1024L * 1024 * 1024 -> "${"%.1f".format(bytes / (1024.0 * 1024))} MB"
-    else -> "${"%.2f".format(bytes / (1024.0 * 1024 * 1024))} GB"
-}
-
-private fun formatDuration(seconds: Long): String {
-    val m = seconds / 60
-    val s = seconds % 60
-    return "${m}m ${s}s"
-}
+import com.example.drivesync.theme.*
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +30,8 @@ fun SyncScreen(
     viewModel: SyncViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val authMode by viewModel.authMode.collectAsStateWithLifecycle()
+    val accountEmail by viewModel.accountEmail.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -84,7 +39,7 @@ fun SyncScreen(
                 title = { Text("Drive Sync") },
                 actions = {
                     IconButton(onClick = onNavigateToSetup) {
-                        Icon(Icons.Filled.Settings, "Configuración")
+                        Icon(Icons.Filled.Settings, contentDescription = "Configuración")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -101,10 +56,15 @@ fun SyncScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
             when (val s = state) {
-                is SyncState.Idle -> IdleContent(onStart = viewModel::startSync)
+                is SyncState.Idle -> IdleContent(
+                    authMode = authMode,
+                    accountEmail = accountEmail,
+                    onStart = viewModel::startSync,
+                    onNavigateToSetup = onNavigateToSetup,
+                )
                 is SyncState.Scanning -> ScanningContent(message = s.message, onCancel = viewModel::cancelSync)
                 is SyncState.Syncing -> SyncingContent(s, onCancel = viewModel::cancelSync)
                 is SyncState.Paused -> PausedContent(s)
@@ -118,7 +78,54 @@ fun SyncScreen(
 }
 
 @Composable
-private fun IdleContent(onStart: () -> Unit) {
+private fun IdleContent(
+    authMode: String,
+    accountEmail: String,
+    onStart: () -> Unit,
+    onNavigateToSetup: () -> Unit,
+) {
+    // Mode Badge Card
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Modo de acceso activo:",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val modeTitle = when (authMode) {
+                    "PUBLIC" -> "🌐 Carpeta Pública (Sin Login)"
+                    "OAUTH" -> "🚀 Cuenta Google (${accountEmail.ifEmpty { "OAuth 2.0" }})"
+                    else -> "🔑 API Key Personal"
+                }
+                Text(
+                    modeTitle,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(onClick = onNavigateToSetup) {
+                Text("Cambiar", fontSize = 12.sp, color = DriveBlue)
+            }
+        }
+    }
+
+    Spacer(Modifier.height(24.dp))
+
     Icon(Icons.Filled.CloudSync, null, Modifier.size(80.dp), tint = DriveBlue)
     Spacer(Modifier.height(16.dp))
     Text("Listo para sincronizar", fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -143,7 +150,7 @@ private fun IdleContent(onStart: () -> Unit) {
         Text("Iniciar Sincronización", fontSize = 16.sp)
     }
     Spacer(Modifier.height(16.dp))
-    RateLimitCard()
+    RateLimitCard(authMode)
 }
 
 @Composable
@@ -255,15 +262,15 @@ private fun SyncingContent(state: SyncState.Syncing, onCancel: () -> Unit) {
     ) {
         Icon(Icons.Filled.Stop, null, Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Cancelar")
+        Text("Cancelar descarga")
     }
 }
 
 @Composable
 private fun PausedContent(state: SyncState.Paused) {
-    Icon(Icons.Filled.PauseCircle, null, Modifier.size(64.dp), tint = StatusPending)
+    Icon(Icons.Filled.Timer, null, Modifier.size(64.dp), tint = StatusPending)
     Spacer(Modifier.height(16.dp))
-    Text("Pausa de Seguridad", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+    Text("Sincronización pausada", fontSize = 22.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(8.dp))
     Text(
         state.reason,
@@ -272,29 +279,30 @@ private fun PausedContent(state: SyncState.Paused) {
         textAlign = TextAlign.Center,
     )
     Spacer(Modifier.height(16.dp))
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = StatusPending.copy(alpha = 0.1f)),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+        ),
     ) {
-        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Reanudando en:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
             Text(
-                "${state.remainingMinutes} min restantes",
-                fontSize = 20.sp,
+                "${state.remainingMinutes} minutos",
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = StatusPending,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Reanudación automática",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onErrorContainer,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Progreso: ${state.syncProgress.downloaded}/${state.syncProgress.totalFiles}",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                "Auto-pausa de seguridad para evitar baneos de IP",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onErrorContainer,
             )
         }
     }
@@ -302,37 +310,27 @@ private fun PausedContent(state: SyncState.Paused) {
 
 @Composable
 private fun DoneContent(state: SyncState.Done, onSyncAgain: () -> Unit) {
-    val icon = if (state.errors == 0) Icons.Filled.CheckCircle else Icons.Filled.Warning
-    val color = if (state.errors == 0) StatusOk else StatusPending
-
-    Icon(icon, null, Modifier.size(80.dp), tint = color)
+    Icon(Icons.Filled.CheckCircle, null, Modifier.size(80.dp), tint = StatusOk)
     Spacer(Modifier.height(16.dp))
-    Text(
-        if (state.errors == 0) "Sincronización Completa!" else "Completado con errores",
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Bold,
-    )
-    Spacer(Modifier.height(8.dp))
-    Text(
-        "Duración: ${formatDuration(state.durationSeconds)}",
-        fontSize = 14.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
+    Text("¡Sincronización completa!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(24.dp))
 
-    // Stats card
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
     ) {
         Column(Modifier.padding(20.dp)) {
-            Text("Resumen", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text("Resumen:", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(Modifier.height(12.dp))
-            StatRow("Drive", "${state.totalDriveFolders} carpetas, ${state.totalDriveFiles} archivos")
-            StatRow("Descargados", "${state.downloaded} (${formatSize(state.downloadedBytes)})")
-            StatRow("Saltados", "${state.skipped}")
-            if (state.errors > 0) StatRow("Errores", "${state.errors}")
+            SummaryRow("Archivos descargados", "${state.downloaded}")
+            SummaryRow("Archivos ignorados (ya existían)", "${state.skipped}")
+            SummaryRow("Errores", "${state.errors}")
+            SummaryRow("Total transferido", formatSize(state.downloadedBytes))
+            SummaryRow("Tiempo total", "${state.durationSeconds}s")
+            SummaryRow("Estructura Drive", "${state.totalDriveFiles} archivos, ${state.totalDriveFolders} carpetas")
         }
     }
 
@@ -342,25 +340,28 @@ private fun DoneContent(state: SyncState.Done, onSyncAgain: () -> Unit) {
         onClick = onSyncAgain,
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(56.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = DriveBlue),
     ) {
         Icon(Icons.Filled.Sync, null, Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Sincronizar de nuevo")
+        Text("Sincronizar de nuevo", fontSize = 16.sp)
     }
 }
 
 @Composable
 private fun ErrorContent(message: String, onRetry: () -> Unit) {
-    Icon(Icons.Filled.ErrorOutline, null, Modifier.size(64.dp), tint = StatusError)
+    Icon(Icons.Filled.Error, null, Modifier.size(80.dp), tint = MaterialTheme.colorScheme.error)
     Spacer(Modifier.height(16.dp))
-    Text("Error", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+    Text("Error de sincronización", fontSize = 24.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(8.dp))
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
         shape = RoundedCornerShape(12.dp),
     ) {
         Text(
@@ -370,32 +371,43 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
             fontSize = 14.sp,
         )
     }
+
     Spacer(Modifier.height(24.dp))
+
     Button(
         onClick = onRetry,
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(56.dp),
         shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = DriveBlue),
     ) {
         Icon(Icons.Filled.Refresh, null, Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Reintentar")
+        Text("Reintentar", fontSize = 16.sp)
     }
 }
 
 @Composable
 private fun StatChip(value: String, label: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color)
-        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.15f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color)
+            Text(label, fontSize = 11.sp, color = color)
+        }
     }
 }
 
 @Composable
-private fun StatRow(label: String, value: String) {
+private fun SummaryRow(label: String, value: String) {
     Row(
-        Modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -406,7 +418,7 @@ private fun StatRow(label: String, value: String) {
 }
 
 @Composable
-private fun RateLimitCard() {
+private fun RateLimitCard(authMode: String = "PUBLIC") {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -415,13 +427,34 @@ private fun RateLimitCard() {
         shape = RoundedCornerShape(12.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("🚀 Máxima Velocidad Activa (Sin Delays)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            val (title, text) = when (authMode) {
+                "API_KEY" -> Pair(
+                    "🔑 Modo API Key (Protección Anti-Ban)",
+                    "15-25s entre descargas para evitar suspensiones de cuota por IP/Key."
+                )
+                "OAUTH" -> Pair(
+                    "🚀 Modo OAuth 2.0 (Máxima Velocidad)",
+                    "Descargas directas e instantáneas sin esperas artificiales."
+                )
+                else -> Pair(
+                    "🌐 Modo Carpeta Pública (Sin Login)",
+                    "0 inicio de sesión requerido • Descargas a máxima velocidad."
+                )
+            }
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Descargas directas e instantáneas sin esperas artificiales.",
+                text,
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+}
+
+private fun formatSize(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val exp = (Math.log(bytes.toDouble()) / Math.log(1024.0)).toInt()
+    val pre = "KMGTPE"[exp - 1]
+    return String.format(Locale.US, "%.1f %sB", bytes / Math.pow(1024.0, exp.toDouble()), pre)
 }
