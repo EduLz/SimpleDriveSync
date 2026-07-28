@@ -107,24 +107,37 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val localDir = File(localPathStr)
-        val rateLimiter = if (authModeVal == "API_KEY") {
-            // Conservative Anti-Ban protection for API Key mode
-            RateLimiter(
-                maxRequestsPerMinute = 10,
-                apiDelayMinMs = 2000,
-                apiDelayMaxMs = 4000,
-                downloadDelayMinMs = 15000,
-                downloadDelayMaxMs = 25000,
-            )
-        } else {
-            // Maximum unthrottled speed for PUBLIC and OAUTH modes
-            RateLimiter(
-                maxRequestsPerMinute = 1000,
-                apiDelayMinMs = 0,
-                apiDelayMaxMs = 0,
-                downloadDelayMinMs = 0,
-                downloadDelayMaxMs = 0,
-            )
+        val rateLimiter = when (authModeVal) {
+            "API_KEY" -> {
+                // Conservative Anti-Ban protection for API Key mode
+                RateLimiter(
+                    maxRequestsPerMinute = 10,
+                    apiDelayMinMs = 2000,
+                    apiDelayMaxMs = 4000,
+                    downloadDelayMinMs = 15000,
+                    downloadDelayMaxMs = 25000,
+                )
+            }
+            "PUBLIC" -> {
+                // Smart micro-pause pacing (~500ms) for Public links to prevent Google's unauthenticated burst block
+                RateLimiter(
+                    maxRequestsPerMinute = 120,
+                    apiDelayMinMs = 200,
+                    apiDelayMaxMs = 400,
+                    downloadDelayMinMs = 400,
+                    downloadDelayMaxMs = 800,
+                )
+            }
+            else -> {
+                // Unthrottled 0ms maximum speed for OAuth 2.0
+                RateLimiter(
+                    maxRequestsPerMinute = 1000,
+                    apiDelayMinMs = 0,
+                    apiDelayMaxMs = 0,
+                    downloadDelayMinMs = 0,
+                    downloadDelayMaxMs = 0,
+                )
+            }
         }
 
         val driveClient = when (authModeVal) {
@@ -214,10 +227,10 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         var totalBytes = 0L
         val total = toDownloadFiles.size
 
-        val waitMessageText = if (authModeVal == "API_KEY") {
-            "Protección Anti-Ban activa..."
-        } else {
-            "Descargando a máxima velocidad..."
+        val waitMessageText = when (authModeVal) {
+            "API_KEY" -> "Protección Anti-Ban activa (15-25s)..."
+            "PUBLIC" -> "Ritmo adaptativo inteligente (~500ms)..."
+            else -> "Descargando a máxima velocidad (OAuth)..."
         }
 
         var idx = 0

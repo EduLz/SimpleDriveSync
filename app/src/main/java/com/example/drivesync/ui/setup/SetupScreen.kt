@@ -482,19 +482,19 @@ fun SetupScreen(
                     Spacer(Modifier.height(8.dp))
                     when (state.authMode) {
                         "PUBLIC" -> {
-                            Text("• Para enlaces compartidos públicos de Google Drive.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• 0 inicio de sesión requerido • Usuarios ilimitados.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• Descargas a máxima velocidad sin esperas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Alcance: Enlaces públicos compartidos (0 login requerido).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Ritmo adaptativo inteligente (~500ms) para evitar bloqueos por ráfagas anónimas de Google.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("⚠️ Advertencia: Google limita las ráfagas anónimas. Recomendado usar OAuth para sincronizaciones de cientos de archivos.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f), fontWeight = FontWeight.Medium)
                         }
                         "OAUTH" -> {
-                            Text("• Para sincronizar tu unidad privada de Google Drive.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• Autenticación segura directa con tu cuenta.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• Descargas directas de alta velocidad sin bloqueos.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Alcance: Recomendado para sincronización completa e ilimitada.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• 0 esperas artificiales (descargas directas a velocidad máxima de tu conexión).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("✅ Autenticado con tu cuenta de Google • Sin cuotas ni bloqueos por IP.", fontSize = 12.sp, color = StatusOk, fontWeight = FontWeight.Medium)
                         }
                         else -> {
-                            Text("• Uso avanzado con clave de API de Google Cloud.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• Protección Anti-Ban activa (15-25s entre descargas).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• Previene suspensiones de cuotas por IP/Key.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Alcance: Uso con tu propia API Key de Google Cloud.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Protección Anti-Ban activa de 15-25s entre descargas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("⚠️ Advertencia: Tráfico anónimo limitado por Google (~32 descargas continuas por ráfaga).", fontSize = 12.sp, color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f), fontWeight = FontWeight.Medium)
                         }
                     }
                 }

@@ -430,15 +430,15 @@ private fun RateLimitCard(authMode: String = "PUBLIC") {
             val (title, text) = when (authMode) {
                 "API_KEY" -> Pair(
                     "🔑 Modo API Key (Protección Anti-Ban)",
-                    "15-25s entre descargas para evitar suspensiones de cuota por IP/Key."
+                    "15-25s entre descargas para evitar suspensiones de cuota (rango ~32 archivos por ráfaga)."
                 )
                 "OAUTH" -> Pair(
-                    "🚀 Modo OAuth 2.0 (Máxima Velocidad)",
-                    "Descargas directas e instantáneas sin esperas artificiales."
+                    "🚀 Modo OAuth 2.0 (Velocidad Ilimitada)",
+                    "Descargas directas e instantáneas sin esperas ni límites por IP."
                 )
                 else -> Pair(
-                    "🌐 Modo Carpeta Pública (Sin Login)",
-                    "0 inicio de sesión requerido • Descargas a máxima velocidad."
+                    "🌐 Modo Carpeta Pública (Ritmo Adaptativo)",
+                    "Micro-pausa de ~500ms para evitar bloqueos por ráfagas anónimas de Google."
                 )
             }
             Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
