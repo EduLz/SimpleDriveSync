@@ -1,11 +1,11 @@
 package com.example.drivesync.ui.setup
 
 import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -33,9 +33,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.drivesync.theme.DriveBlue
 import com.example.drivesync.theme.StatusOk
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.Scope
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,37 +44,6 @@ fun SetupScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showWebOAuthDialog by remember { mutableStateOf(false) }
-
-    val clientId = "997977700161-bi5qhdmb6ic64uaikbkjjgu2j5onisrc.apps.googleusercontent.com"
-
-    // Native Google Sign-In setup
-    val gso = remember {
-        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(clientId)
-            .requestScopes(Scope("https://www.googleapis.com/auth/drive.readonly"))
-            .requestEmail()
-            .build()
-    }
-
-    val googleSignInLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        try {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
-            if (account != null) {
-                val acc = account.account ?: android.accounts.Account(account.email ?: "", "com.google")
-                viewModel.onGoogleSignInSuccess(acc, account.email ?: "Cuenta de Google")
-            } else {
-                viewModel.setAuthError("No se pudo obtener la cuenta de Google.")
-            }
-        } catch (e: com.google.android.gms.common.api.ApiException) {
-            // If native sign-in fails due to status 10 (unregistered app), launch Web OAuth
-            showWebOAuthDialog = true
-        } catch (e: Exception) {
-            showWebOAuthDialog = true
-        }
-    }
 
     var hasStoragePermission by remember {
         mutableStateOf(
@@ -112,7 +78,6 @@ fun SetupScreen(
         }
     }
 
-    // In-App Web OAuth Dialog
     if (showWebOAuthDialog) {
         WebOAuthDialog(
             onTokenCaptured = { token ->
@@ -126,7 +91,7 @@ fun SetupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Drive Sync") },
+                title = { Text("Configuración") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 )
@@ -143,49 +108,27 @@ fun SetupScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            // Header
-            Icon(
-                Icons.Filled.Sync,
-                contentDescription = null,
-                modifier = Modifier.size(56.dp),
-                tint = DriveBlue,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text("Configuración", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text(
-                "Conecta tu cuenta de Google u obtén acceso para sincronizar",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            // Storage permission card (Android 11+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasStoragePermission) {
+            if (!hasStoragePermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(
-                            "Permiso de almacenamiento requerido",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
+                            "Permiso de Almacenamiento Requerido",
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Para guardar archivos en la carpeta de Descargas, necesitas conceder acceso al almacenamiento.",
-                            fontSize = 12.sp,
+                            "Para guardar archivos en la memoria interna, concede el permiso de acceso total a archivos.",
+                            fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedButton(
+                        Spacer(Modifier.height(8.dp))
+                        Button(
                             onClick = {
                                 val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                                     data = Uri.parse("package:${context.packageName}")
@@ -210,35 +153,28 @@ fun SetupScreen(
                     selected = state.authMode == "PUBLIC",
                     onClick = { viewModel.setAuthMode("PUBLIC") },
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                ) {
-                    Icon(Icons.Filled.Public, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Pública", fontSize = 11.sp)
-                }
+                    icon = {},
+                    label = { Text("Pública", fontSize = 12.sp) }
+                )
                 SegmentedButton(
                     selected = state.authMode == "OAUTH",
                     onClick = { viewModel.setAuthMode("OAUTH") },
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                ) {
-                    Icon(Icons.Filled.AccountCircle, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("OAuth", fontSize = 11.sp)
-                }
+                    icon = {},
+                    label = { Text("OAuth 2.0", fontSize = 12.sp) }
+                )
                 SegmentedButton(
                     selected = state.authMode == "API_KEY",
                     onClick = { viewModel.setAuthMode("API_KEY") },
                     shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                ) {
-                    Icon(Icons.Filled.Key, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("API Key", fontSize = 11.sp)
-                }
+                    icon = {},
+                    label = { Text("API Key", fontSize = 12.sp) }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
 
             if (state.authMode == "PUBLIC") {
-                // Public mode card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -250,18 +186,14 @@ fun SetupScreen(
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Public, null, tint = DriveBlue, modifier = Modifier.size(22.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Modo Carpeta Pública (Sin Login)",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                            )
-                        }
-                        Spacer(Modifier.height(6.dp))
                         Text(
-                            "Ideal para descargar carpetas públicas compartidas por enlace. 0 inicio de sesión requerido, usuarios ilimitados.",
+                            "Carpeta Pública (Sin Login)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Permite descargar carpetas compartidas públicas por enlace sin inicio de sesión.",
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -269,7 +201,6 @@ fun SetupScreen(
                     }
                 }
             } else if (state.authMode == "OAUTH") {
-                // OAuth 2.0 Google Sign-In Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -283,60 +214,46 @@ fun SetupScreen(
                     ) {
                         if (state.accountEmail.isNotBlank() && state.oauthToken.isNotBlank()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.CheckCircle, null, tint = StatusOk, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Filled.CheckCircle, null, tint = StatusOk, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "Conectado: ${state.accountEmail}",
                                     fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp,
+                                    fontSize = 13.sp,
                                 )
                             }
                             Spacer(Modifier.height(8.dp))
-                            Text(
-                                "✅ OAuth 2.0 activo. Sin congelamiento de cuota.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(12.dp))
                             OutlinedButton(
                                 onClick = { showWebOAuthDialog = true },
                                 shape = RoundedCornerShape(8.dp),
                             ) {
-                                Text("Reconectar cuenta de Google")
+                                Text("Reconectar cuenta")
                             }
                         } else {
                             Text(
-                                "Inicia sesión con Google para descargas continuas sin congelamiento.",
-                                fontSize = 13.sp,
+                                "Inicia sesión para descargas continuas de alta velocidad.",
+                                fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(Modifier.height(12.dp))
                             Button(
-                                onClick = {
-                                    showWebOAuthDialog = true
-                                },
+                                onClick = { showWebOAuthDialog = true },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = DriveBlue),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Icon(Icons.Filled.Language, null, Modifier.size(20.dp))
+                                Icon(Icons.Filled.Language, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Iniciar sesión con Google (Web)")
+                                Text("Iniciar sesión con Google")
                             }
 
                             Spacer(Modifier.height(12.dp))
 
-                            Text(
-                                "o ingresa el Token OAuth manualmente:",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(8.dp))
                             OutlinedTextField(
                                 value = state.oauthToken,
                                 onValueChange = viewModel::updateOAuthToken,
-                                label = { Text("OAuth 2.0 Bearer Token") },
+                                label = { Text("Bearer Token manual (opcional)") },
                                 leadingIcon = { Icon(Icons.Filled.Key, null) },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
@@ -346,11 +263,10 @@ fun SetupScreen(
                     }
                 }
             } else {
-                // API Key field
                 OutlinedTextField(
                     value = state.apiKey,
                     onValueChange = viewModel::updateApiKey,
-                    label = { Text("API Key de Google (Opcional/Personal)") },
+                    label = { Text("API Key de Google Cloud") },
                     leadingIcon = { Icon(Icons.Filled.Key, null) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -364,7 +280,7 @@ fun SetupScreen(
             OutlinedTextField(
                 value = state.driveUrl,
                 onValueChange = viewModel::updateDriveUrl,
-                label = { Text("URL de carpeta de Drive") },
+                label = { Text("URL de la carpeta de Drive") },
                 leadingIcon = { Icon(Icons.Filled.Cloud, null) },
                 placeholder = { Text("https://drive.google.com/drive/folders/...") },
                 modifier = Modifier.fillMaxWidth(),
@@ -374,7 +290,7 @@ fun SetupScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Local path field with folder picker button
+            // Local path field
             OutlinedTextField(
                 value = state.localPath,
                 onValueChange = viewModel::updateLocalPath,
@@ -410,12 +326,11 @@ fun SetupScreen(
             Spacer(Modifier.height(4.dp))
 
             Text(
-                "Por defecto: Descargas/Tamashis Project",
+                "Ruta por defecto: Descargas/Tamashis Project",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // Error message
             state.errorMessage?.let { error ->
                 Spacer(Modifier.height(12.dp))
                 Card(
@@ -435,7 +350,6 @@ fun SetupScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Save button
             Button(
                 onClick = viewModel::saveAndValidate,
                 enabled = state.isValid && !state.isSaving,
@@ -458,9 +372,9 @@ fun SetupScreen(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Rate limiting & Mode info card
+            // Mode info card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -470,31 +384,28 @@ fun SetupScreen(
             ) {
                 Column(Modifier.padding(16.dp)) {
                     val title = when (state.authMode) {
-                        "PUBLIC" -> "🌐 Modo Carpeta Pública (Sin Login)"
-                        "OAUTH" -> "🚀 Modo Cuenta Google (OAuth 2.0)"
-                        else -> "🔑 Modo API Key Personal (Con Anti-Ban)"
+                        "PUBLIC" -> "Modo Carpeta Pública"
+                        "OAUTH" -> "Modo Cuenta Google (OAuth 2.0)"
+                        else -> "Modo API Key Personal"
                     }
                     Text(
                         title,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     when (state.authMode) {
                         "PUBLIC" -> {
-                            Text("• Alcance: Enlaces públicos compartidos (0 login requerido).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• Ritmo adaptativo inteligente (~500ms) para evitar bloqueos por ráfagas anónimas de Google.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("⚠️ Advertencia: Google limita las ráfagas anónimas. Recomendado usar OAuth para sincronizaciones de cientos de archivos.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f), fontWeight = FontWeight.Medium)
+                            Text("Acceso por enlace público sin inicio de sesión.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Aplica ritmo adaptativo (~500ms) para mantener la estabilidad de descargas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         "OAUTH" -> {
-                            Text("• Alcance: Recomendado para sincronización completa e ilimitada.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• 0 esperas artificiales (descargas directas a velocidad máxima de tu conexión).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("✅ Autenticado con tu cuenta de Google • Sin cuotas ni bloqueos por IP.", fontSize = 12.sp, color = StatusOk, fontWeight = FontWeight.Medium)
+                            Text("Recomendado para descargas continuas sin pausas artificiales.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Autenticado mediante cuenta personal de Google.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         else -> {
-                            Text("• Alcance: Uso con tu propia API Key de Google Cloud.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("• Protección Anti-Ban activa de 15-25s entre descargas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("⚠️ Advertencia: Tráfico anónimo limitado por Google (~32 descargas continuas por ráfaga).", fontSize = 12.sp, color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f), fontWeight = FontWeight.Medium)
+                            Text("Uso avanzado con API Key de Google Cloud.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Protección anti-ban activa de 15-25s entre descargas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -519,60 +430,55 @@ fun WebOAuthDialog(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
         ) {
-            Column(Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        "Iniciar sesión con Google",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
+                    Text("Iniciar sesión con Google", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Filled.Close, contentDescription = "Cerrar")
                     }
                 }
-                Divider()
 
                 if (isLoading) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = DriveBlue)
                 }
+
+                val authUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
+                        "client_id=997977700161-bi5qhdmb6ic64uaikbkjjgu2j5onisrc.apps.googleusercontent.com&" +
+                        "redirect_uri=https://oauth.pstmn.io/v1/browser-callback&" +
+                        "response_type=token&" +
+                        "scope=https://www.googleapis.com/auth/drive.readonly"
 
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
-                            settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
                             webViewClient = object : WebViewClient() {
-                                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                    super.onPageStarted(view, url, favicon)
-                                    isLoading = true
-                                    checkUrl(url)
-                                }
-
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     super.onPageFinished(view, url)
                                     isLoading = false
-                                    checkUrl(url)
                                 }
 
-                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                    val url = request?.url?.toString() ?: ""
-                                    return checkUrl(url)
-                                }
-
-                                private fun checkUrl(url: String?): Boolean {
-                                    if (url == null) return false
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    request: WebResourceRequest?
+                                ): Boolean {
+                                    val url = request?.url?.toString() ?: return false
                                     if (url.contains("access_token=")) {
                                         val token = url.substringAfter("access_token=").substringBefore("&")
                                         if (token.isNotBlank()) {
@@ -583,15 +489,7 @@ fun WebOAuthDialog(
                                     return false
                                 }
                             }
-
-                            val clientId = "997977700161-bi5qhdmb6ic64uaikbkjjgu2j5onisrc.apps.googleusercontent.com"
-                            val oauthUrl = "https://accounts.google.com/o/oauth2/v2/auth" +
-                                    "?client_id=$clientId" +
-                                    "&redirect_uri=https://oauth.pstmn.io/v1/browser-callback" +
-                                    "&response_type=token" +
-                                    "&scope=https://www.googleapis.com/auth/drive.readonly"
-
-                            loadUrl(oauthUrl)
+                            loadUrl(authUrl)
                         }
                     },
                     modifier = Modifier.fillMaxSize()

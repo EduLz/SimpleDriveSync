@@ -106,9 +106,9 @@ private fun IdleContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 val modeTitle = when (authMode) {
-                    "PUBLIC" -> "🌐 Carpeta Pública (Sin Login)"
-                    "OAUTH" -> "🚀 Cuenta Google (${accountEmail.ifEmpty { "OAuth 2.0" }})"
-                    else -> "🔑 API Key Personal"
+                    "PUBLIC" -> "Carpeta Pública (Sin Login)"
+                    "OAUTH" -> "Cuenta Google (${accountEmail.ifEmpty { "OAuth 2.0" }})"
+                    else -> "API Key Personal"
                 }
                 Text(
                     modeTitle,
@@ -300,7 +300,7 @@ private fun PausedContent(state: SyncState.Paused) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Auto-pausa de seguridad para evitar baneos de IP",
+                "Pausa de seguridad por límite de cuota",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
@@ -312,7 +312,7 @@ private fun PausedContent(state: SyncState.Paused) {
 private fun DoneContent(state: SyncState.Done, onSyncAgain: () -> Unit) {
     Icon(Icons.Filled.CheckCircle, null, Modifier.size(80.dp), tint = StatusOk)
     Spacer(Modifier.height(16.dp))
-    Text("¡Sincronización completa!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+    Text("Sincronización completa", fontSize = 24.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(24.dp))
 
     Card(
@@ -429,16 +429,16 @@ private fun RateLimitCard(authMode: String = "PUBLIC") {
         Column(Modifier.padding(16.dp)) {
             val (title, text) = when (authMode) {
                 "API_KEY" -> Pair(
-                    "🔑 Modo API Key (Protección Anti-Ban)",
-                    "15-25s entre descargas para evitar suspensiones de cuota (rango ~32 archivos por ráfaga)."
+                    "Modo API Key",
+                    "Protección anti-ban activa de 15-25s entre descargas."
                 )
                 "OAUTH" -> Pair(
-                    "🚀 Modo OAuth 2.0 (Velocidad Ilimitada)",
-                    "Descargas directas e instantáneas sin esperas ni límites por IP."
+                    "Modo OAuth 2.0",
+                    "Descargas directas sin esperas."
                 )
                 else -> Pair(
-                    "🌐 Modo Carpeta Pública (Ritmo Adaptativo)",
-                    "Micro-pausa de ~500ms para evitar bloqueos por ráfagas anónimas de Google."
+                    "Modo Carpeta Pública",
+                    "Ritmo adaptativo de ~500ms entre archivos."
                 )
             }
             Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)

@@ -228,9 +228,9 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         val total = toDownloadFiles.size
 
         val waitMessageText = when (authModeVal) {
-            "API_KEY" -> "Protección Anti-Ban activa (15-25s)..."
-            "PUBLIC" -> "Ritmo adaptativo inteligente (~500ms)..."
-            else -> "Descargando a máxima velocidad (OAuth)..."
+            "API_KEY" -> "Protección anti-ban activa (15-25s)..."
+            "PUBLIC" -> "Descargando (ritmo adaptativo)..."
+            else -> "Descargando..."
         }
 
         var idx = 0
