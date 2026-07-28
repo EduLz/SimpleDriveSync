@@ -7,9 +7,12 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build & Verify Android Release
+    name: Build & Publish Release
     runs-on: ubuntu-latest
 
     steps:
@@ -29,14 +32,31 @@ jobs:
       - name: Build Debug & Release APKs
         run: ./gradlew assembleDebug assembleRelease --no-daemon
 
-      - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SimpleDriveSync-v1.0-Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Rename APKs for Release
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk SimpleDriveSync-v1.0.0-Debug.apk
+          cp app/build/outputs/apk/release/app-release-unsigned.apk SimpleDriveSync-v1.0.0-Release.apk
 
-      - name: Upload Release APK Artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: SimpleDriveSync-v1.0-Release-APK
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: SimpleDriveSync-APKs
+          path: SimpleDriveSync-*.apk
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SimpleDriveSync v1.0.0
+          body: |
+            ## SimpleDriveSync v1.0.0 - Official Release 🎉
+
+            - **Google Drive Syncing:** Public Folder, OAuth 2.0, and API Key modes.
+            - **Background Sync:** WorkManager foreground service with real-time status bar notification.
+            - **Post-Scan Selection Panel:** Interactive file selection before downloading.
+            - **Resumable Downloads:** Range HTTP headers with atomic `.tmp` cache file swap.
+          files: |
+            SimpleDriveSync-v1.0.0-Debug.apk
+            SimpleDriveSync-v1.0.0-Release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
