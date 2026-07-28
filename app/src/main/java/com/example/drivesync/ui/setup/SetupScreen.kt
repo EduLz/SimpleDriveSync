@@ -92,6 +92,11 @@ fun SetupScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Configuración") },
+                navigationIcon = {
+                    IconButton(onClick = onSetupComplete) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Regresar")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 )
