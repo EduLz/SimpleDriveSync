@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.drivesync.data.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,14 +71,19 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         syncJob = viewModelScope.launch {
             try {
                 performSync()
+            } catch (e: CancellationException) {
+                _state.value = SyncState.Idle
             } catch (e: Exception) {
-                _state.value = SyncState.Error("Error: ${e.message}")
+                if (_state.value !is SyncState.Idle) {
+                    _state.value = SyncState.Error("Error: ${e.message}")
+                }
             }
         }
     }
 
     fun cancelSync() {
         syncJob?.cancel()
+        syncJob = null
         _state.value = SyncState.Idle
     }
 
