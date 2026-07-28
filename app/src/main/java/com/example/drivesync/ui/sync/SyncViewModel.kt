@@ -93,7 +93,26 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val localDir = File(localPathStr)
-        val rateLimiter = RateLimiter()
+        val rateLimiter = if (authMode == "API_KEY") {
+            // Conservative Anti-Ban protection for API Key mode
+            RateLimiter(
+                maxRequestsPerMinute = 10,
+                apiDelayMinMs = 2000,
+                apiDelayMaxMs = 4000,
+                downloadDelayMinMs = 15000,
+                downloadDelayMaxMs = 25000,
+            )
+        } else {
+            // Maximum unthrottled speed for PUBLIC and OAUTH modes
+            RateLimiter(
+                maxRequestsPerMinute = 1000,
+                apiDelayMinMs = 0,
+                apiDelayMaxMs = 0,
+                downloadDelayMinMs = 0,
+                downloadDelayMaxMs = 0,
+            )
+        }
+
         val driveClient = when (authMode) {
             "OAUTH" -> DriveApiClient(oauthToken = oauthToken, rateLimiter = rateLimiter)
             "API_KEY" -> DriveApiClient(apiKey = apiKey, rateLimiter = rateLimiter)

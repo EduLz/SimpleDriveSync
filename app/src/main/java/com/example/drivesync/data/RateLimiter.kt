@@ -35,11 +35,16 @@ class RateLimiter(
      * Wait before an API listing call. Returns the delay in seconds for UI display.
      */
     suspend fun waitForApiCall(): Int {
+        if (apiDelayMaxMs <= apiDelayMinMs) {
+            if (apiDelayMinMs > 0) delay(apiDelayMinMs)
+            totalRequests++
+            return (apiDelayMinMs / 1000).toInt()
+        }
         enforceRateLimit()
         val delay = Random.nextLong(apiDelayMinMs, apiDelayMaxMs)
-        val jitter = Random.nextLong(0, (jitterMaxMs * 0.3).toLong())
+        val jitter = if (jitterMaxMs > 0) Random.nextLong(0, (jitterMaxMs * 0.3).toLong()) else 0L
         val total = delay + jitter
-        delay(total)
+        if (total > 0) delay(total)
         totalRequests++
         return (total / 1000).toInt()
     }
@@ -48,11 +53,16 @@ class RateLimiter(
      * Wait before downloading a file. Returns the delay in seconds for UI display.
      */
     suspend fun waitForDownload(): Int {
+        if (downloadDelayMaxMs <= downloadDelayMinMs) {
+            if (downloadDelayMinMs > 0) delay(downloadDelayMinMs)
+            totalRequests++
+            return (downloadDelayMinMs / 1000).toInt()
+        }
         enforceRateLimit()
         val delay = Random.nextLong(downloadDelayMinMs, downloadDelayMaxMs)
-        val jitter = Random.nextLong(0, jitterMaxMs)
+        val jitter = if (jitterMaxMs > 0) Random.nextLong(0, jitterMaxMs) else 0L
         val total = delay + jitter
-        delay(total)
+        if (total > 0) delay(total)
         totalRequests++
         return (total / 1000).toInt()
     }

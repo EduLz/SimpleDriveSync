@@ -173,6 +173,10 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun consumeSavedSuccessfully() {
+        _uiState.value = _uiState.value.copy(savedSuccessfully = false)
+    }
+
     fun saveAndValidate() {
         viewModelScope.launch {
             val state = _uiState.value

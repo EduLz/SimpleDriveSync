@@ -107,6 +107,7 @@ fun SetupScreen(
 
     LaunchedEffect(state.savedSuccessfully) {
         if (state.savedSuccessfully) {
+            viewModel.consumeSavedSuccessfully()
             onSetupComplete()
         }
     }
@@ -459,7 +460,7 @@ fun SetupScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Rate limiting info card
+            // Rate limiting & Mode info card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -468,18 +469,33 @@ fun SetupScreen(
                 shape = RoundedCornerShape(12.dp),
             ) {
                 Column(Modifier.padding(16.dp)) {
+                    val title = when (state.authMode) {
+                        "PUBLIC" -> "🌐 Modo Carpeta Pública (Sin Login)"
+                        "OAUTH" -> "🚀 Modo Cuenta Google (OAuth 2.0)"
+                        else -> "🔑 Modo API Key Personal (Con Anti-Ban)"
+                    }
                     Text(
-                        if (state.authMode == "OAUTH") "🚀 OAuth 2.0 Web (Cuota Personal Alta)" else "⚡ Modo API Key",
+                        title,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
                     )
                     Spacer(Modifier.height(8.dp))
-                    if (state.authMode == "OAUTH") {
-                        Text("• Cuota personal sin bloqueos de tráfico anónimo", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("• Descargas continuas de alta velocidad", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        Text("• 0.5-1.5s entre descargas", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("• Sujeto a cuotas por API Key de Google", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    when (state.authMode) {
+                        "PUBLIC" -> {
+                            Text("• Para enlaces compartidos públicos de Google Drive.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• 0 inicio de sesión requerido • Usuarios ilimitados.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Descargas a máxima velocidad sin esperas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        "OAUTH" -> {
+                            Text("• Para sincronizar tu unidad privada de Google Drive.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Autenticación segura directa con tu cuenta.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Descargas directas de alta velocidad sin bloqueos.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        else -> {
+                            Text("• Uso avanzado con clave de API de Google Cloud.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Protección Anti-Ban activa (15-25s entre descargas).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("• Previene suspensiones de cuotas por IP/Key.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
