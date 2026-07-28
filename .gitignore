@@ -1,0 +1,30 @@
+# ============================================================================
+# .gitignore — SimpleDriveSync (Android App)
+# ============================================================================
+
+# Gradle & Android Build Artifacts
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+app/*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Output packages
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Personal test files
+*.txt
+*.log
