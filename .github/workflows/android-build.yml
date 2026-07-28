@@ -35,7 +35,7 @@ jobs:
       - name: Rename APKs for Release
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk SimpleDriveSync-v1.0.0-Debug.apk
-          cp app/build/outputs/apk/release/app-release-unsigned.apk SimpleDriveSync-v1.0.0-Release.apk
+          cp app/build/outputs/apk/release/app-release.apk SimpleDriveSync-v1.0.0-Release.apk
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
