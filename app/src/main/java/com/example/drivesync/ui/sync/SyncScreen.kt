@@ -188,27 +188,17 @@ private fun IdleContent(
                 )
                 val modeTitle = when (authMode) {
                     "PUBLIC" -> "Carpeta Pública (Sin Login)"
-                    "OAUTH" -> "Cuenta Google (OAuth 2.0)"
+                    "OAUTH" -> if (accountEmail.isNotBlank()) "Cuenta: $accountEmail" else "Cuenta Google (OAuth 2.0)"
                     else -> "API Key Personal"
                 }
                 Text(
                     modeTitle,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
+                    color = if (authMode == "OAUTH" && accountEmail.isNotBlank()) DriveBlue else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (authMode == "OAUTH" && accountEmail.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        "Cuenta: $accountEmail",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = DriveBlue,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
             TextButton(onClick = onNavigateToSetup) {
                 Text("Cambiar", fontSize = 12.sp, color = DriveBlue)

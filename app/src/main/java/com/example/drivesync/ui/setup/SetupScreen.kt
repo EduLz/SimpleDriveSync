@@ -520,8 +520,36 @@ fun SetupScreen(
                             Text("Aplica ritmo adaptativo (~500ms) para mantener la estabilidad de descargas.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         "OAUTH" -> {
-                            Text("Recomendado para descargas continuas sin pausas artificiales.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Recomendado para descargas continuas sin pausas o bloqueos temporales.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("Autenticado mediante cuenta personal de Google.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                            if (state.accountEmail.isNotBlank()) {
+                                Spacer(Modifier.height(10.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.AccountCircle,
+                                            contentDescription = null,
+                                            tint = DriveBlue,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Cuenta: ${state.accountEmail}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                            }
                         }
                         else -> {
                             Text("Uso avanzado con API Key de Google Cloud.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
