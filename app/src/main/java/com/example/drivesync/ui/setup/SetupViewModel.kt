@@ -44,7 +44,7 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
             val downloads = Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_DOWNLOADS
             )
-            return File(downloads, "Tamashis Project").absolutePath
+            return File(downloads, "SimpleDriveSync").absolutePath
         }
     }
 
